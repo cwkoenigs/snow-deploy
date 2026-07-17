@@ -1,0 +1,22 @@
+{
+  "name": "snow-deploy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A Vercel-style platform for deploying React apps to Snowflake (Snowpark Container Services).",
+  "license": "MIT",
+  "workspaces": [
+    "cli",
+    "server",
+    "dashboard"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "cli": "node cli/bin/snowd.js",
+    "server": "node server/src/index.js",
+    "dashboard:dev": "npm --workspace dashboard run dev",
+    "dashboard:build": "npm --workspace dashboard run build",
+    "test": "node --test cli/test/*.test.js"
+  }
+}

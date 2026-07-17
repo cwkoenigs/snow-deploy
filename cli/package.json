@@ -1,0 +1,18 @@
+{
+  "name": "@snow-deploy/cli",
+  "version": "0.1.0",
+  "description": "snowd — deploy React apps to Snowflake like Vercel.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "snowd": "bin/snowd.js"
+  },
+  "main": "src/index.js",
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "snowflake-sdk": "^1.14.0"
+  }
+}

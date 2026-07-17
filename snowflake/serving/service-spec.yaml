@@ -1,0 +1,29 @@
+# SPCS service specification for the snow-deploy serving container.
+#
+# It mounts the artifact stage read-only and serves every project's deployments
+# over HTTP. Create it with the CREATE SERVICE statement in serving/README.md
+# (which passes this spec inline or from a stage).
+spec:
+  containers:
+    - name: web
+      image: /snow_deploy/core/images/snow-deploy-serve:latest
+      volumeMounts:
+        - name: artifacts
+          mountPath: /artifacts
+      readinessProbe:
+        port: 8080
+        path: /healthz
+      resources:
+        requests:
+          cpu: 0.5
+          memory: 512Mi
+        limits:
+          cpu: 1
+          memory: 1Gi
+  endpoints:
+    - name: web
+      port: 8080
+      public: true          # exposes a Snowflake-managed ingress URL
+  volumes:
+    - name: artifacts
+      source: "@SNOW_DEPLOY.CORE.ARTIFACTS"

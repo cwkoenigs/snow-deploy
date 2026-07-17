@@ -1,0 +1,15 @@
+{
+  "name": "@snow-deploy/server",
+  "version": "0.1.0",
+  "description": "Control-plane API + dashboard host for snow-deploy.",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@snow-deploy/cli": "*",
+    "express": "^4.19.2"
+  }
+}

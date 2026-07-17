@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+.snowdeploy/
+*.log
+.DS_Store
+.env
+.env.local
+coverage/
+*.p8
+*.pem
