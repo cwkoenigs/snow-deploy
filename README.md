@@ -76,6 +76,9 @@ examples/hello-react/   a sample app you can deploy
 
 ## Quickstart
 
+> Full step-by-step provisioning instructions with verification steps and
+> troubleshooting: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ### 0. Prerequisites
 - Node 18+
 - A Snowflake account with `ACCOUNTADMIN` (for one-time setup) and SPCS enabled.
