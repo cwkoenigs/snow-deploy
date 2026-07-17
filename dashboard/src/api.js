@@ -20,4 +20,11 @@ export const api = {
     req('POST', `/api/deployments/${encodeURIComponent(id)}/promote`, { target }),
   rollback: (name, target = 'production') =>
     req('POST', `/api/projects/${encodeURIComponent(name)}/rollback`, { target }),
+  grantAccess: (name, principal) =>
+    req('POST', `/api/projects/${encodeURIComponent(name)}/access`, { principal }),
+  revokeAccess: (name, principal) =>
+    req(
+      'DELETE',
+      `/api/projects/${encodeURIComponent(name)}/access/${encodeURIComponent(principal)}`,
+    ),
 };

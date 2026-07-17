@@ -35,12 +35,26 @@ api.get('/projects', h(async (_req, res) => {
 api.get('/projects/:name', h(async (req, res) => {
   const project = await backend.getProject(req.params.name);
   if (!project) return res.status(404).json({ error: 'not found' });
-  const [deployments, production, preview] = await Promise.all([
+  const [deployments, production, preview, access] = await Promise.all([
     backend.listDeployments(req.params.name, { limit: 50 }),
     backend.getAlias(req.params.name, 'production'),
     backend.getAlias(req.params.name, 'preview'),
+    backend.listAccess(req.params.name),
   ]);
-  res.json({ project, deployments, aliases: { production, preview } });
+  res.json({ project, deployments, aliases: { production, preview }, access });
+}));
+
+// ---- Per-app access control -------------------------------------------------
+api.post('/projects/:name/access', h(async (req, res) => {
+  const principal = req.body && req.body.principal;
+  if (!principal) return res.status(400).json({ error: 'principal required' });
+  const result = await backend.grantAccess(req.params.name, principal, 'dashboard');
+  if (result && result.error) return res.status(400).json(result);
+  res.json(result);
+}));
+
+api.delete('/projects/:name/access/:principal', h(async (req, res) => {
+  res.json(await backend.revokeAccess(req.params.name, req.params.principal));
 }));
 
 api.get('/deployments/:id', h(async (req, res) => {

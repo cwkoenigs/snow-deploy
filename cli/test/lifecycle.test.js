@@ -76,3 +76,44 @@ test('rollback with no history is rejected', async () => {
   await backend.createProject({ name: 'fresh', framework: 'react' });
   await assert.rejects(() => backend.rollback('fresh', 'production'), /No previous/);
 });
+
+test('access control: grant/revoke publishes the policy file', async () => {
+  const backend = getBackend({ mock: true });
+  await backend.createProject({ name: 'phi-tool', framework: 'react' });
+
+  // No rules yet → empty list.
+  assert.deepEqual(await backend.listAccess('phi-tool'), []);
+
+  // Grant two users (second grant is case-normalized + deduped).
+  await backend.grantAccess('phi-tool', 'alice', 'admin');
+  await backend.grantAccess('phi-tool', 'ALICE', 'admin');
+  const granted = await backend.grantAccess('phi-tool', 'bob', 'admin');
+  assert.deepEqual(granted.principals, ['ALICE', 'BOB']);
+
+  // The compiled policy file is keyed by slug, as the auth sidecar expects.
+  const policyPath = path.join(TMP, 'artifacts', '_meta', 'access.json');
+  let policies = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+  assert.deepEqual(policies['phi-tool'], ['ALICE', 'BOB']);
+
+  // The sidecar's decision logic agrees with the published policy.
+  process.env.ACCESS_FILE = policyPath;
+  const authPath = require.resolve('../../snowflake/serving/auth.js');
+  delete require.cache[authPath];
+  const { decide } = require(authPath);
+  assert.equal(decide('phi-tool', 'alice').allow, true);
+  assert.equal(decide('phi-tool', 'MALLORY').allow, false);
+  assert.equal(decide('phi-tool', null).allow, false);
+  assert.equal(decide('some-open-app', 'MALLORY').allow, true);
+
+  // Revoke → policy file updated; empty rules → unrestricted again.
+  await backend.revokeAccess('phi-tool', 'alice');
+  const after = await backend.revokeAccess('phi-tool', 'BOB');
+  assert.deepEqual(after.principals, []);
+  policies = JSON.parse(fs.readFileSync(policyPath, 'utf8'));
+  assert.equal(policies['phi-tool'], undefined);
+});
+
+test('grantAccess on unknown project is rejected', async () => {
+  const backend = getBackend({ mock: true });
+  await assert.rejects(() => backend.grantAccess('ghost', 'alice'), /Unknown project/);
+});

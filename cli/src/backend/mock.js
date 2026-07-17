@@ -34,9 +34,11 @@ class MockBackend {
 
   _read() {
     try {
-      return JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
+      const db = JSON.parse(fs.readFileSync(this.dbPath, 'utf8'));
+      db.access = db.access || {};
+      return db;
     } catch {
-      return { projects: {}, deployments: {}, aliases: {} };
+      return { projects: {}, deployments: {}, aliases: {}, access: {} };
     }
   }
 
@@ -77,6 +79,7 @@ class MockBackend {
     if (!db.projects[name]) return false;
     const slug = db.projects[name].slug;
     delete db.projects[name];
+    delete db.access[name];
     for (const [id, d] of Object.entries(db.deployments)) {
       if (d.projectName === name) delete db.deployments[id];
     }
@@ -85,6 +88,7 @@ class MockBackend {
     }
     fs.rmSync(path.join(this.artifactsDir, slug), { recursive: true, force: true });
     this._write(db);
+    this._publishAccess(db);
     return true;
   }
 
@@ -182,6 +186,51 @@ class MockBackend {
       throw new Error(`No previous ${target} deployment to roll back to for ${projectName}`);
     }
     return this.promote(alias.previousDeploymentId, target);
+  }
+
+  // ---- Per-app access control ----------------------------------------------
+  // Mirrors the PUBLISH_ACCESS procedure: compile the rules into a policy file
+  // in the artifact tree, keyed by slug, which the serving sidecar enforces.
+  _publishAccess(db) {
+    const policies = {};
+    for (const [projectName, entries] of Object.entries(db.access)) {
+      const project = db.projects[projectName];
+      if (project && entries.length) policies[project.slug] = entries.map((e) => e.principal);
+    }
+    const metaDir = path.join(this.artifactsDir, '_meta');
+    fs.mkdirSync(metaDir, { recursive: true });
+    fs.writeFileSync(path.join(metaDir, 'access.json'), JSON.stringify(policies, null, 2));
+  }
+
+  async grantAccess(projectName, principal, grantedBy = 'local') {
+    const db = this._read();
+    if (!db.projects[projectName]) throw new Error(`Unknown project: ${projectName}`);
+    const entries = (db.access[projectName] = db.access[projectName] || []);
+    const upper = String(principal).toUpperCase();
+    if (!entries.some((e) => e.principal === upper)) {
+      entries.push({ principal: upper, grantedBy, grantedAt: new Date().toISOString() });
+    }
+    this._write(db);
+    this._publishAccess(db);
+    return { project: projectName, principals: entries.map((e) => e.principal) };
+  }
+
+  async revokeAccess(projectName, principal) {
+    const db = this._read();
+    const upper = String(principal).toUpperCase();
+    db.access[projectName] = (db.access[projectName] || []).filter(
+      (e) => e.principal !== upper,
+    );
+    this._write(db);
+    this._publishAccess(db);
+    return {
+      project: projectName,
+      principals: db.access[projectName].map((e) => e.principal),
+    };
+  }
+
+  async listAccess(projectName) {
+    return this._read().access[projectName] || [];
   }
 
   async close() {}

@@ -69,7 +69,8 @@ dashboard/        React (Vite) dashboard — projects, deployments, promote/roll
 snowflake/
   01_setup.sql       database, schema, stage, tables, roles
   02_procedures.sql  deploy-lifecycle stored procedures
-  serving/           Dockerfile + nginx.conf + SPCS service spec (see its README)
+  03_access.sql      per-app access control (who can view which app)
+  serving/           Dockerfile + nginx + auth sidecar + SPCS spec (see its README)
 examples/hello-react/   a sample app you can deploy
 ```
 
@@ -84,6 +85,7 @@ Run the SQL (Snowsight worksheet or `snow sql -f`):
 ```sql
 !source snowflake/01_setup.sql
 !source snowflake/02_procedures.sql
+!source snowflake/03_access.sql
 -- then grant yourself the deployer role:
 GRANT ROLE SNOW_DEPLOY_DEPLOYER TO USER <you>;
 ```
@@ -141,6 +143,9 @@ cd ../.. && npm run dashboard:build && SNOWD_MOCK=1 npm run server
 | `snowd inspect <id> [--logs]` | Show a deployment's details and build logs |
 | `snowd promote <id> [--target]` | Point an alias at a deployment |
 | `snowd rollback [project]` | Revert to the previous deployment |
+| `snowd access grant <project> <user>` | Restrict an app to specific Snowflake users |
+| `snowd access revoke <project> <user>` | Remove a user from an app's viewer list |
+| `snowd access ls [project]` | Show who can view an app |
 | `snowd rm <project> --yes` | Delete a project + its artifacts |
 | `snowd open [project]` | Print/open the production URL |
 | `snowd whoami` | Show the active backend |
@@ -159,15 +164,36 @@ Add `--mock` to any command to use the local store.
 **Serving origin**: `SNOWD_SERVE_BASE` (CLI links) and `SETTINGS.serve_base`
 (URLs stored on deployments) should both point at the SPCS ingress URL.
 
-## Security notes
+## Security & compliance
 
-- The CLI authenticates as `SNOW_DEPLOY_DEPLOYER`, scoped to the `SNOW_DEPLOY`
-  database and the artifact stage only.
-- Credentials live in `~/.snowdeploy/credentials.json` (mode `600`) and are
-  git-ignored. Prefer key-pair auth in CI.
-- The serving endpoint is Snowflake-authenticated by default (`public: true`
-  ingress requires a Snowflake login). Front it with your own gateway for
-  anonymous access.
+Designed so that regulated apps (e.g. HIPAA workloads) never leave the
+Snowflake account boundary:
+
+- **Everything stays in Snowflake** — build artifacts (stage, `SNOWFLAKE_SSE`
+  encrypted), serving (SPCS container in your account), deploy metadata
+  (tables), and app data access (browser ↔ Snowflake). No external CDN or host.
+- **Authentication** — the SPCS ingress URL requires a Snowflake login; your
+  existing users/SSO are the front door. Anonymous internet traffic never
+  reaches the apps.
+- **Per-app authorization** — run `03_access.sql`, then restrict any app:
+
+  ```bash
+  snowd access grant billing-phi-app ALICE     # now only ALICE can view it
+  snowd access ls billing-phi-app
+  ```
+
+  SPCS ingress injects the authenticated username (`Sf-Context-Current-User`)
+  into every request; an auth sidecar next to nginx checks it against the
+  policy compiled into `@ARTIFACTS/_meta/access.json`. No rules = any
+  authenticated user; rules = only the listed users (previews included).
+  Grants apply within seconds, denials are logged.
+- **Least privilege** — the CLI authenticates as `SNOW_DEPLOY_DEPLOYER`,
+  scoped to the `SNOW_DEPLOY` database and artifact stage only.
+- **Credentials** — `~/.snowdeploy/credentials.json` (mode `600`, git-ignored);
+  prefer key-pair auth in CI.
+- **HIPAA prerequisite** — PHI workloads require Snowflake **Business Critical
+  edition or higher and a signed BAA** with Snowflake. That's an account-level
+  contract this tool can't provide; confirm it with your Snowflake admin.
 
 ## Notes / limitations
 

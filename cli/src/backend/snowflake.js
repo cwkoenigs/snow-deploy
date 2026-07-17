@@ -192,6 +192,25 @@ class SnowflakeBackend {
     return rows.length ? safeJson(rows[0].J) : null;
   }
 
+  // ---- Per-app access control -----------------------------------------------
+  async grantAccess(projectName, principal, grantedBy) {
+    return this.call('GRANT_ACCESS', [projectName, principal, grantedBy || null]);
+  }
+
+  async revokeAccess(projectName, principal) {
+    return this.call('REVOKE_ACCESS', [projectName, principal]);
+  }
+
+  async listAccess(projectName) {
+    const rows = await this.exec(
+      `SELECT OBJECT_CONSTRUCT('principal',PRINCIPAL,'grantedBy',GRANTED_BY,
+        'grantedAt',TO_VARCHAR(GRANTED_AT)) AS J
+       FROM ${this.fq}.APP_ACCESS WHERE PROJECT_NAME = ? ORDER BY PRINCIPAL`,
+      [projectName],
+    );
+    return rows.map((r) => safeJson(r.J));
+  }
+
   async promote(deploymentId, target = 'production') {
     return this.call('PROMOTE', [deploymentId, target]);
   }

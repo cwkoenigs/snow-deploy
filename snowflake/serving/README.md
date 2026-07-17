@@ -1,7 +1,11 @@
 # Serving layer (Snowpark Container Services)
 
-A single nginx container serves **every** deployed app straight from the
-`ARTIFACTS` stage — you build and push this image once, not per app.
+A single container serves **every** deployed app straight from the
+`ARTIFACTS` stage — you build and push this image once, not per app. It runs
+two processes:
+
+- **nginx** — static serving with SPA fallback and immutable `/assets/` caching
+- **auth sidecar** (`auth.js`) — per-app access control (see below)
 
 ```
 /artifacts/{slug}/_prod/…          → https://<ingress>/{slug}/           (production)
@@ -9,12 +13,34 @@ A single nginx container serves **every** deployed app straight from the
 ```
 
 `snowd deploy` uploads files to `{slug}/{deploymentId}/`; `snowd promote`
-(via the `PROMOTE` procedure) copies them into `{slug}/_prod/`. nginx does SPA
-fallback to `index.html` and caches hashed `/assets/` immutably.
+(via the `PROMOTE` procedure) copies them into `{slug}/_prod/`.
+
+## Per-app access control
+
+Every request to an app path triggers an nginx `auth_request` to the sidecar:
+
+1. SPCS ingress authenticates the visitor against Snowflake and injects their
+   username as the `Sf-Context-Current-User` header. Clients cannot forge this
+   through ingress — it is set after authentication.
+2. nginx forwards the app slug + that username to the sidecar.
+3. The sidecar checks them against `/artifacts/_meta/access.json`, the policy
+   file the `GRANT_ACCESS`/`REVOKE_ACCESS`/`PUBLISH_ACCESS` procedures
+   (03_access.sql) compile from the `APP_ACCESS` table.
+
+Policy semantics: **no entry for an app → any authenticated Snowflake user may
+view it; entries present → only the listed usernames** (`*` = everyone).
+Previews are protected the same as production. Denials return a 403 page and
+are logged to the container's stdout for audit. Policy changes propagate
+through the stage mount within seconds — no restart.
+
+> Trust note: the check relies on requests entering through SPCS ingress. Do
+> not expose the container's port by any other path, and keep the `_meta/`
+> prefix block in nginx.conf (it stops the policy file from being served).
 
 ## One-time setup
 
-Run `01_setup.sql` and `02_procedures.sql` first, then as `ACCOUNTADMIN`:
+Run `01_setup.sql`, `02_procedures.sql`, and `03_access.sql` first, then as
+`ACCOUNTADMIN`:
 
 ```sql
 USE ROLE ACCOUNTADMIN;

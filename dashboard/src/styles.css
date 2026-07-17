@@ -112,3 +112,28 @@ a { color: inherit; text-decoration: none; }
 
 .state { text-align: center; padding: 80px 20px; }
 .state-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+
+.access-panel {
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 18px 16px; margin: 0 0 28px; background: var(--panel);
+}
+.access-head { display: flex; align-items: baseline; gap: 12px; }
+.access-head .section { margin: 0 0 10px; }
+.access-body { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: ui-monospace, monospace; font-size: 12px;
+  border: 1px solid var(--border); border-radius: 999px; padding: 4px 6px 4px 12px;
+  background: var(--panel-2);
+}
+.pill-x {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  font-size: 14px; line-height: 1; padding: 0 4px;
+}
+.pill-x:hover:not(:disabled) { color: var(--err); }
+.access-input {
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 6px 10px; font-size: 13px;
+  font-family: ui-monospace, monospace; width: 220px;
+}
+.access-input:focus { outline: none; border-color: #45454e; }

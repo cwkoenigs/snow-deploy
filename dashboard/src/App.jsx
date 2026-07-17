@@ -115,7 +115,7 @@ function ProjectDetail({ name }) {
   if (error) return <Empty title="Couldn't load project" detail={error} />;
   if (!data) return <Loading />;
 
-  const { project, deployments, aliases } = data;
+  const { project, deployments, aliases, access = [] } = data;
   const prodId = aliases.production?.deploymentId;
 
   return (
@@ -149,6 +149,8 @@ function ProjectDetail({ name }) {
       <div className="alias-row">
         <AliasCard label="Production" alias={aliases.production} />
       </div>
+
+      <AccessPanel projectName={project.name} access={access} busy={busy} act={act} />
 
       <h2 className="section">Deployments</h2>
       <div className="table">
@@ -186,6 +188,55 @@ function ProjectDetail({ name }) {
         ))}
       </div>
     </>
+  );
+}
+
+function AccessPanel({ projectName, access, busy, act }) {
+  const [principal, setPrincipal] = useState('');
+
+  const add = () => {
+    const value = principal.trim();
+    if (!value) return;
+    act(() => api.grantAccess(projectName, value));
+    setPrincipal('');
+  };
+
+  return (
+    <div className="access-panel">
+      <div className="access-head">
+        <h2 className="section">Access</h2>
+        <span className="muted">
+          {access.length === 0
+            ? 'Open to all authenticated Snowflake users'
+            : `Restricted to ${access.length} user${access.length === 1 ? '' : 's'}`}
+        </span>
+      </div>
+      <div className="access-body">
+        {access.map((e) => (
+          <span className="pill" key={e.principal} title={`granted by ${e.grantedBy || '?'}`}>
+            {e.principal}
+            <button
+              className="pill-x"
+              disabled={busy}
+              onClick={() => act(() => api.revokeAccess(projectName, e.principal))}
+              aria-label={`revoke ${e.principal}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          className="access-input"
+          placeholder="SNOWFLAKE_USERNAME"
+          value={principal}
+          onChange={(e) => setPrincipal(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <button className="btn" disabled={busy || !principal.trim()} onClick={add}>
+          Grant
+        </button>
+      </div>
+    </div>
   );
 }
 

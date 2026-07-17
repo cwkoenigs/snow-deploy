@@ -84,6 +84,23 @@ program
   .option('--yes', 'skip confirmation')
   .action(withGlobal(require('../src/commands/remove')));
 
+const access = program
+  .command('access')
+  .description('Manage who can view an app (per-app access control)');
+access
+  .command('grant <project> <username>')
+  .description('Allow a Snowflake user to view an app ("*" = all authenticated users)')
+  .action(withGlobal(require('../src/commands/access').grant));
+access
+  .command('revoke <project> <username>')
+  .description('Remove a user from an app’s viewer list')
+  .action(withGlobal(require('../src/commands/access').revoke));
+access
+  .command('ls [project]')
+  .alias('list')
+  .description('Show an app’s viewer list')
+  .action(withGlobal(require('../src/commands/access').list));
+
 program
   .command('open [project]')
   .description('Print/open a project production URL')
